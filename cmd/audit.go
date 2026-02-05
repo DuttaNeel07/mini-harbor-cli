@@ -6,7 +6,7 @@ package cmd
 
 import (
 	"fmt"
-
+	"time"
 	"github.com/spf13/cobra"
 )
 
@@ -25,9 +25,20 @@ to quickly create a Cobra application.`,
 	},
 }
 
+var auditStreamCmd = &cobra.Command{
+		Use: "stream",
+		Short: "Stream Audit Logs",
+		Run: func(cmd *cobra.Command, args []string){
+			for {
+				fmt.Println("audit event");
+				time.Sleep(2 * time.Second)
+			}
+		}, 
+}
+
 func init() {
 	rootCmd.AddCommand(auditCmd)
-
+	auditCmd.AddCommand(auditStreamCmd)
 	// Here you will define your flags and configuration settings.
 
 	// Cobra supports Persistent Flags which will work for this command

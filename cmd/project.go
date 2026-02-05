@@ -24,10 +24,18 @@ to quickly create a Cobra application.`,
 		fmt.Println("project called")
 	},
 }
+var projectListCmd = &cobra.Command{
+	Use:   "list",
+	Short: "List projects",
+	Run: func(cmd *cobra.Command, args []string) {
+		fmt.Println("Project - 1")
+		fmt.Println("Project - 2")
+	},
+}
 
 func init() {
 	rootCmd.AddCommand(projectCmd)
-
+	projectCmd.AddCommand(projectListCmd)
 	// Here you will define your flags and configuration settings.
 
 	// Cobra supports Persistent Flags which will work for this command
