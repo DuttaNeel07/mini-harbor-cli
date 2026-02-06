@@ -38,8 +38,9 @@ var auditStreamCmd = &cobra.Command{
 			repo,
 		)
 
-		var lastEventID string
-
+		
+		seen := make(map[string]bool)
+		initialized := false
 		for {
 			req, err := http.NewRequest("GET", url, nil)
 			if err != nil {
@@ -70,27 +71,27 @@ var auditStreamCmd = &cobra.Command{
 				fmt.Println("failed to parse events:", err)
 				return
 			}
-
 			// Print only new events
 			for i := len(events) - 1; i >= 0; i-- {
 				event := events[i]
 				id, _ := event["id"].(string)
 
-				if id == lastEventID {
-					break
+				if seen[id] {
+					continue
 				}
+			
+				seen[id] = true
 
-				eventType, _ := event["type"].(string)
-				repoObj, _ := event["repo"].(map[string]interface{})
-				repoName, _ := repoObj["name"].(string)
-
-				fmt.Printf("[%s] %s\n", eventType, repoName)
+				if initialized {
+					eventType, _ := event["type"].(string)
+					repoObj, _ := event["repo"].(map[string]interface{})
+					repoName, _ := repoObj["name"].(string)
+			
+					fmt.Printf("[%s] %s\n", eventType, repoName)
+				}
 			}
-
-			if len(events) > 0 {
-				lastEventID, _ = events[0]["id"].(string)
-			}
-
+			
+			initialized = true
 			time.Sleep(10 * time.Second)
 		}
 	},
