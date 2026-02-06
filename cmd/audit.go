@@ -1,51 +1,109 @@
-/*
-Copyright © 2026 NAME HERE <EMAIL ADDRESS>
-
-*/
 package cmd
 
 import (
+	"encoding/json"
 	"fmt"
+	"net/http"
 	"time"
+
+	"mini-harbor-cli/pkg/auth"
+
 	"github.com/spf13/cobra"
 )
 
-// auditCmd represents the audit command
+var repo string
+
 var auditCmd = &cobra.Command{
 	Use:   "audit",
-	Short: "A brief description of your command",
-	Long: `A longer description that spans multiple lines and likely contains examples
-and usage of using your command. For example:
-
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
-	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("audit called")
-	},
+	Short: "Audit related commands",
 }
 
 var auditStreamCmd = &cobra.Command{
-		Use: "stream",
-		Short: "Stream Audit Logs",
-		Run: func(cmd *cobra.Command, args []string){
-			for {
-				fmt.Println("audit event");
-				time.Sleep(2 * time.Second)
+	Use:   "stream",
+	Short: "Stream audit events",
+	Run: func(cmd *cobra.Command, args []string) {
+		token := auth.GetToken()
+		if token == "" {
+			fmt.Println("not logged in. run: mini login --token <token>")
+			return
+		}
+
+		if repo == "" {
+			fmt.Println("repo is required. example: --repo owner/name")
+			return
+		}
+
+		url := fmt.Sprintf(
+			"https://api.github.com/repos/%s/events",
+			repo,
+		)
+
+		var lastEventID string
+
+		for {
+			req, err := http.NewRequest("GET", url, nil)
+			if err != nil {
+				fmt.Println("failed to create request:", err)
+				return
 			}
-		}, 
+
+			req.Header.Set("Authorization", "Bearer "+token)
+			req.Header.Set("Accept", "application/vnd.github+json")
+
+			client := &http.Client{}
+			resp, err := client.Do(req)
+			if err != nil {
+				fmt.Println("failed to fetch events:", err)
+				return
+			}
+
+			if resp.StatusCode != 200 {
+				fmt.Println("API returned status:", resp.Status)
+				resp.Body.Close()
+				return
+			}
+
+			var events []map[string]interface{}
+			err = json.NewDecoder(resp.Body).Decode(&events)
+			resp.Body.Close()
+			if err != nil {
+				fmt.Println("failed to parse events:", err)
+				return
+			}
+
+			// Print only new events
+			for i := len(events) - 1; i >= 0; i-- {
+				event := events[i]
+				id, _ := event["id"].(string)
+
+				if id == lastEventID {
+					break
+				}
+
+				eventType, _ := event["type"].(string)
+				repoObj, _ := event["repo"].(map[string]interface{})
+				repoName, _ := repoObj["name"].(string)
+
+				fmt.Printf("[%s] %s\n", eventType, repoName)
+			}
+
+			if len(events) > 0 {
+				lastEventID, _ = events[0]["id"].(string)
+			}
+
+			time.Sleep(10 * time.Second)
+		}
+	},
 }
 
 func init() {
 	rootCmd.AddCommand(auditCmd)
 	auditCmd.AddCommand(auditStreamCmd)
-	// Here you will define your flags and configuration settings.
 
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// auditCmd.PersistentFlags().String("foo", "", "A help for foo")
-
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	// auditCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	auditStreamCmd.Flags().StringVar(
+		&repo,
+		"repo",
+		"",
+		"Repository in owner/name format",
+	)
 }
