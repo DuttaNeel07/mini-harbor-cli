@@ -4,7 +4,9 @@ Copyright © 2026 NAME HERE <EMAIL ADDRESS>
 package cmd
 
 import (
+	"encoding/json"
 	"fmt"
+	"net/http"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -33,6 +35,37 @@ to quickly create a Cobra application.`,
 			return
 		}
 		fmt.Println("Token Saved Sucessfully");
+
+			req, err := http.NewRequest("GET", "https://api.github.com/user", nil)
+	if err != nil {
+		fmt.Println("Token saved, but failed to verify user")
+		return
+	}
+
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Accept", "application/vnd.github+json")
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		fmt.Println("Token saved, but failed to verify user")
+		return
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		fmt.Println("Token saved, but failed to verify user")
+		return
+	}
+
+	var user map[string]interface{}
+	err = json.NewDecoder(resp.Body).Decode(&user)
+	if err != nil {
+		fmt.Println("Token saved, but failed to parse user info")
+		return
+	}
+
+	fmt.Println("Logged in as:", user["login"])
 	},
 }
 
